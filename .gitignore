@@ -1,0 +1,3 @@
+# Project exclude paths
+/gmall_realtime_spark/target/
+/.idea/
