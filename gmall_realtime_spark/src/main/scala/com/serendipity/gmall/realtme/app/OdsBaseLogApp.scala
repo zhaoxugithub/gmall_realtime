@@ -3,10 +3,12 @@ package com.serendipity.gmall.realtme.app
 import com.alibaba.fastjson.serializer.SerializeConfig
 import com.alibaba.fastjson.{JSON, JSONArray, JSONObject}
 import com.serendipity.gmall.realtme.bean.{PageActionLog, PageDisplayLog, PageLog, StartLog}
-import com.serendipity.gmall.realtme.util.MyKafkaUtil
+import com.serendipity.gmall.realtme.util.{MyKafkaUtil, MyOffsetsUtils, MyRedisUtils}
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.TopicPartition
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
+import org.apache.spark.streaming.kafka010.{HasOffsetRanges, OffsetRange}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 /**
@@ -33,11 +35,32 @@ object OdsBaseLogApp {
     System.setProperty("hadoop.home.dir", "D:\\soft\\hadoop")
     //local[4] 的原因是为了保持和kafka分区一致
     val conf: SparkConf = new SparkConf().setAppName("ods_base_log_app").setMaster("local[4]")
+
+    val topic:String = "ODS_BASE_LOG"
+    val groupId:String="g1"
+
+    //微批次，每5秒钟执行一次
     val ssc = new StreamingContext(conf, Seconds(5))
-    val kafkaDStream: InputDStream[ConsumerRecord[String, String]] = MyKafkaUtil.getKafkaDStream("ODS_BASE_LOG", ssc, "g1")
+    //1.先去redis取出offset
+    val offsetMap: Map[TopicPartition, Long] = MyOffsetsUtils.readOffset(topic, groupId)
+    //根据offset去kafka中获取kafkaDStream
+    var kafkaDStream: InputDStream[ConsumerRecord[String, String]] = null
+    if (offsetMap != null && offsetMap.nonEmpty) {
+        //如果redis中有offset
+      kafkaDStream = MyKafkaUtil.getKafkaDStream(topic, ssc, groupId, offsetMap)
+    }else{
+        //如果redis中没有offset,就默认消费
+      kafkaDStream = MyKafkaUtil.getKafkaDStream(topic, ssc, groupId)
+    }
+    //从kafkaDStream中获取这批数据最新的offset保存到redis中，但不对流进行处理
+    var offsetRanges: Array[OffsetRange] = null;
+    val offsetDStream: DStream[ConsumerRecord[String, String]] = kafkaDStream.transform(rdd => {
+      offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+      rdd
+    })
     //kafkaDStream.print()
     //如果是这种情况进行打印，因为没有进行序列化，所以要转成jsonObject会报异常：java.io.NotSerializableException: org.apache.kafka.clients.consumer.ConsumerRecord
-    val jsonDStream: DStream[JSONObject] = kafkaDStream.map(record => {
+    val jsonDStream: DStream[JSONObject] = offsetDStream.map(record => {
       val str: String = record.value()
       val jSONObject: JSONObject = JSON.parseObject(str)
       jSONObject
@@ -164,7 +187,6 @@ object OdsBaseLogApp {
                     MyKafkaUtil.send(DWD_PAGE_ACTION_TOPIC, JSON.toJSONString(pageActionLog, new SerializeConfig(true)))
                   })
                 }
-
               }
               //启动数据
               val startJsonObj: JSONObject = jsonObj.getJSONObject("start")
@@ -184,8 +206,10 @@ object OdsBaseLogApp {
             }
           }
         )
+        MyOffsetsUtils.saveOffset(groupId, topic, offsetRanges)
       }
     )
+
     ssc.start()
     ssc.awaitTermination()
   }

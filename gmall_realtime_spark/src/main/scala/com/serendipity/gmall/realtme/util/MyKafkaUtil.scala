@@ -28,7 +28,7 @@ object MyKafkaUtil {
     //earliest：从最早的offset开始消费，就是partition的起始位置开始消费
     //latest：从最近的offset开始消费，就是新加入partition的消息才会被消费
     //none：报错
-    ConsumerConfig.AUTO_OFFSET_RESET_CONFIG -> "earliest",
+    ConsumerConfig.AUTO_OFFSET_RESET_CONFIG -> "latest",
     //是否开启自动提交offset功能,kafka自身去维护offset
     ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG -> "true"
   )
@@ -75,7 +75,7 @@ object MyKafkaUtil {
    * @param groupId
    * @param offset
    */
-  def getKafkaDStream(topic: String, ssc: StreamingContext, groupId: String, offset: collection.Map[TopicPartition, Long]): Unit = {
+  def getKafkaDStream(topic: String, ssc: StreamingContext, groupId: String, offset: collection.Map[TopicPartition, Long]): InputDStream[ConsumerRecord[String, String]] = {
     kafkaConsumerParams(ConsumerConfig.GROUP_ID_CONFIG) = groupId
     val dStream: InputDStream[ConsumerRecord[String, String]] = KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent,
       ConsumerStrategies.Subscribe(Array(topic), kafkaConsumerParams, offset))
