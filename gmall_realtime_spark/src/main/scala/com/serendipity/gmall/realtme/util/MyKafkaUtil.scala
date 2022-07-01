@@ -64,6 +64,7 @@ object MyKafkaUtil {
       //  kafkaParams: collection.Map[String, Object])
       //  offsets: collection.Map[TopicPartition, Long])
       ConsumerStrategies.Subscribe(Array(topic), kafkaConsumerParams))
+    println("----------getKafkaDStreamWithOutOffset---------")
     dStream
   }
 
@@ -77,8 +78,10 @@ object MyKafkaUtil {
    */
   def getKafkaDStream(topic: String, ssc: StreamingContext, groupId: String, offset: collection.Map[TopicPartition, Long]): InputDStream[ConsumerRecord[String, String]] = {
     kafkaConsumerParams(ConsumerConfig.GROUP_ID_CONFIG) = groupId
+    // createDirectStream 实际上是创建RDD
     val dStream: InputDStream[ConsumerRecord[String, String]] = KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent,
       ConsumerStrategies.Subscribe(Array(topic), kafkaConsumerParams, offset))
+    println("----------getKafkaDStreamWithOffset---------")
     dStream
   }
 
