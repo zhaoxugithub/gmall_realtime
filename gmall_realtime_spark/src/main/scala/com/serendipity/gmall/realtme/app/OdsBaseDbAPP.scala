@@ -33,7 +33,7 @@ object OdsBaseDbAPP {
 
   def main(args: Array[String]): Unit = {
 
-    val conf: SparkConf = new SparkConf().setAppName("ods_base_db_app").setMaster("local[4]")
+    val conf: SparkConf = new SparkConf().setAppName("ods_base_db_app").setMaster("local[1]")
     val ssc: StreamingContext = new StreamingContext(conf, Seconds(5))
     val topic: String = "ODS_BASE_DB"
     val groupId: String = "ODS_BASE_DB_GROUP"
@@ -80,7 +80,6 @@ object OdsBaseDbAPP {
 
         val jedis1: Jedis = MyRedisUtils.getRedisFromPool()
 
-
         records.foreach(jsonObj => {
           //获取数据类型
           val opType: String = jsonObj.getString("type")
@@ -114,7 +113,7 @@ object OdsBaseDbAPP {
         MyKafkaUtil.flush()
       }
       )
-      MyOffsetsUtils.saveOffset(groupId,topic,offsetRanges)
+      MyOffsetsUtils.saveOffset(groupId, topic, offsetRanges)
     })
 
     ssc.start()

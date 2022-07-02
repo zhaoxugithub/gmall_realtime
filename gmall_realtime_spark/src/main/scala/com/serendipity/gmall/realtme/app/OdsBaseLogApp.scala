@@ -32,9 +32,9 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 object OdsBaseLogApp {
 
   def main(args: Array[String]): Unit = {
-    System.setProperty("hadoop.home.dir", "D:\\soft\\hadoop")
+//    System.setProperty("hadoop.home.dir", "D:\\soft\\hadoop")
     //local[4] 的原因是为了保持和kafka分区一致
-    val conf: SparkConf = new SparkConf().setAppName("ods_base_log_app").setMaster("local[4]")
+    val conf: SparkConf = new SparkConf().setAppName("ods_base_log_app").setMaster("local[1]")
 
     val topic:String = "ODS_BASE_LOG"
     val groupId:String="g1"
@@ -98,6 +98,7 @@ object OdsBaseLogApp {
     jsonDStream.foreachRDD(
       rdd => {
         //每一个rdd处理过程中包含多调数据
+        println("----")
         rdd.foreach(
           jsonObj => {
             //分流过程
