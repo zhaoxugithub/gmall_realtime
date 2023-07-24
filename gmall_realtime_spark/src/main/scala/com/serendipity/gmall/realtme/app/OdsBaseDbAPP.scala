@@ -13,7 +13,6 @@ import redis.clients.jedis.Jedis
 
 import java.util
 
-
 /**
  *
  * 1.准备实时环境
@@ -30,9 +29,8 @@ import java.util
  */
 object OdsBaseDbAPP {
 
-
   def main(args: Array[String]): Unit = {
-
+    System.setProperty("hadoop.home.dir", "D:\\soft\\hadoop")
     val conf: SparkConf = new SparkConf().setAppName("ods_base_db_app").setMaster("local[1]")
     val ssc: StreamingContext = new StreamingContext(conf, Seconds(5))
     val topic: String = "ODS_BASE_DB"
@@ -57,9 +55,11 @@ object OdsBaseDbAPP {
       val jSONObject: JSONObject = JSON.parseObject(str)
       jSONObject
     })
-
+//    //事实表清单
+//    val factTables: Array[String] = Array[String]("order_info", "order_detail" /*缺啥补啥*/)
+//    //维度表清单
+//    val dimTables: Array[String] = Array[String]("user_info", "base_province" /*缺啥补啥*/)
     jsonStream.foreachRDD(rdd => {
-
       //每一批数据进行redis的操作
       val redisFactKey: String = "FACT:TABLES"
       val redisDimKey: String = "DIM:TABLES"
@@ -77,9 +77,7 @@ object OdsBaseDbAPP {
 
       jedis.close()
       rdd.foreachPartition(records => {
-
         val jedis1: Jedis = MyRedisUtils.getRedisFromPool()
-
         records.foreach(jsonObj => {
           //获取数据类型
           val opType: String = jsonObj.getString("type")
@@ -96,7 +94,7 @@ object OdsBaseDbAPP {
             if (factTableBC.value.contains(tablesName)) {
               val data: String = jsonObj.getString("data")
               //封装topic
-              val factTopicName: String = s"DWD_${tablesName.toLowerCase()}_{$op}_20220629"
+              val factTopicName: String = s"DWD_${tablesName.toUpperCase()}_${op}_20220629"
               MyKafkaUtil.send(factTopicName, data)
             }
             //纬度表封装到redis中
@@ -104,7 +102,7 @@ object OdsBaseDbAPP {
               val dimObj: JSONObject = jsonObj.getJSONObject("data")
               val dimID: String = dimObj.getString("id")
               //封装redis key
-              val dimKey: String = s"DIM:${tablesName.toLowerCase()}:$dimID"
+              val dimKey: String = s"DIM:${tablesName.toUpperCase()}:$dimID"
               jedis1.set(dimKey, dimObj.toJSONString)
             }
           }

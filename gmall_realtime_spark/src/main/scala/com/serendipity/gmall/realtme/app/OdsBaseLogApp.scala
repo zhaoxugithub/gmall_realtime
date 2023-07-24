@@ -28,28 +28,27 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
  * 页面曝光主题：DWD_PAGE_DISPLAY
  * 错误主题：DWD_ERROR_INFO
  */
-
 object OdsBaseLogApp {
 
   def main(args: Array[String]): Unit = {
-//    System.setProperty("hadoop.home.dir", "D:\\soft\\hadoop")
+    System.setProperty("hadoop.home.dir", "D:\\soft\\hadoop")
     //local[4] 的原因是为了保持和kafka分区一致
     val conf: SparkConf = new SparkConf().setAppName("ods_base_log_app").setMaster("local[1]")
 
-    val topic:String = "ODS_BASE_LOG"
-    val groupId:String="g1"
+    val topic: String = "ODS_BASE_LOG"
+    val groupId: String = "g1"
 
     //微批次，每5秒钟执行一次
     val ssc = new StreamingContext(conf, Seconds(5))
-    //1.先去redis取出offset
+    //先去redis取出offset
     val offsetMap: Map[TopicPartition, Long] = MyOffsetsUtils.readOffset(topic, groupId)
     //根据offset去kafka中获取kafkaDStream
     var kafkaDStream: InputDStream[ConsumerRecord[String, String]] = null
     if (offsetMap != null && offsetMap.nonEmpty) {
-        //如果redis中有offset
+      //如果redis中有offset
       kafkaDStream = MyKafkaUtil.getKafkaDStream(topic, ssc, groupId, offsetMap)
-    }else{
-        //如果redis中没有offset,就默认消费
+    } else {
+      //如果redis中没有offset,就默认消费
       kafkaDStream = MyKafkaUtil.getKafkaDStream(topic, ssc, groupId)
     }
     //从kafkaDStream中获取这批数据最新的offset保存到redis中，但不对流进行处理
@@ -151,7 +150,7 @@ object OdsBaseLogApp {
                 val lastPageId: String = pageObj.getString("last_page_id")
                 val sourceType: String = pageObj.getString("source_type")
                 val duringTime: Long = pageObj.getLong("during_time")
-                var pageLog = PageLog(mid, uid, ar, ch, isNew, md, os, vc, ba, pageId, lastPageId, pageItem, pageItemType, duringTime, sourceType, ts)
+                var pageLog: PageLog = PageLog(mid, uid, ar, ch, isNew, md, os, vc, ba, pageId, lastPageId, pageItem, pageItemType, duringTime, sourceType, ts)
                 MyKafkaUtil.send(DWD_PAGE_LOG_TOPIC, JSON.toJSONString(pageLog, new SerializeConfig(true)))
                 //提取曝光数据
                 val displaysJsonArr: JSONArray = jsonObj.getJSONArray("displays")
@@ -166,8 +165,7 @@ object OdsBaseLogApp {
                     val displayItemType: String = displayObj.getString("item_type")
                     val posId: String = displayObj.getString("pos_id")
                     val order: String = displayObj.getString("order")
-                    val pageDisplayLog =
-                      PageDisplayLog(mid, uid, ar, ch, isNew, md, os, vc, ba, pageId, lastPageId, pageItem, pageItemType, duringTime, sourceType, displayType, displayItem, displayItemType, order, posId, ts)
+                    val pageDisplayLog: PageDisplayLog = PageDisplayLog(mid, uid, ar, ch, isNew, md, os, vc, ba, pageId, lastPageId, pageItem, pageItemType, duringTime, sourceType, displayType, displayItem, displayItemType, order, posId, ts)
                     // 写到 DWD_PAGE_DISPLAY_TOPIC
                     MyKafkaUtil.send(DWD_PAGE_DISPLAY_TOPIC, JSON.toJSONString(pageDisplayLog, new SerializeConfig(true)))
                   })
@@ -182,7 +180,7 @@ object OdsBaseLogApp {
                     val actionItemType: String = actionObj.getString("item_type")
                     val actionTs: Long = actionObj.getLong("ts")
                     //封装PageActionLog
-                    var pageActionLog =
+                    var pageActionLog: PageActionLog =
                       PageActionLog(mid, uid, ar, ch, isNew, md, os, vc, ba, pageId, lastPageId, pageItem, pageItemType, duringTime, sourceType, actionId, actionItem, actionItemType, actionTs, ts)
                     //写出到DWD_PAGE_ACTION_TOPIC
                     MyKafkaUtil.send(DWD_PAGE_ACTION_TOPIC, JSON.toJSONString(pageActionLog, new SerializeConfig(true)))
@@ -199,7 +197,7 @@ object OdsBaseLogApp {
                 val openAdMs: Long = startJsonObj.getLong("open_ad_ms")
                 val openAdSkipMs: Long = startJsonObj.getLong("open_ad_skip_ms")
                 //封装StartLog
-                var startLog =
+                var startLog: StartLog =
                   StartLog(mid, uid, ar, ch, isNew, md, os, vc, ba, entry, openAdId, loadingTime, openAdMs, openAdSkipMs, ts)
                 //写出DWD_START_LOG_TOPIC
                 MyKafkaUtil.send(DWD_START_LOG_TOPIC, JSON.toJSONString(startLog, new SerializeConfig(true)))
@@ -210,7 +208,6 @@ object OdsBaseLogApp {
         MyOffsetsUtils.saveOffset(groupId, topic, offsetRanges)
       }
     )
-
     ssc.start()
     ssc.awaitTermination()
   }
